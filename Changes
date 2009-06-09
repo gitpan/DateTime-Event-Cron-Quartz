@@ -1,4 +1,9 @@
 Revision history:
 
-0.01  Tue Jun 7 20:00:00 EDT 2009
-	- initial release
+0.02  Tue Jun 9 15:00:00 2009
+    - POD fixes
+    - to_array() function added to ::TreeSet
+    - Makefile.PL dependency fixed
+
+0.01  Sun Jun 7 20:00:00 2009
+    - initial release

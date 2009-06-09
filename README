@@ -2,7 +2,7 @@ DateTime::Event::Cron::Quartz
 =============================
 
 This module generates DateTime objects based on quartz 
-crontab-style entries.
+cron-like entries.
 
 INSTALLATION
 
@@ -17,7 +17,7 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-  DateTime
+  DateTime, Readonly, Class::Accessor
 
 SUPPORT
 
@@ -29,5 +29,7 @@ Based on the source code and documentation of OpenSymphony
 L<http://www.opensymphony.com/team.jsp> Quartz 1.4.2 project licensed
 under the Apache License, Version 2.0
 
-This module is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+This module is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
 Copyright (c) 2009 Vadim Loginov.

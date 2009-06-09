@@ -4,7 +4,7 @@ use 5.006001;
 use strict;
 use warnings;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub new {
     my $class = shift;
@@ -62,6 +62,16 @@ sub add {
     }
 
     return;
+}
+
+sub to_array {
+    my $self = shift;
+    
+    if (!$self->{_sorted}) {
+        $self->_sort;
+    }
+    
+    return $self->{_array};
 }
 
 sub tail_set {
@@ -204,6 +214,11 @@ Returns a view of the portion of this set whose
 elements are greater than or equal to $from_element.
 The returned sorted set supports all TreeSet methods.
 
+=item to_array()
+
+Returns an ordered array of elements
+
+
 =back
 
 
@@ -229,13 +244,15 @@ Based on the source code and documentation of OpenSymphony
 L<http://www.opensymphony.com/team.jsp> Quartz 1.4.2 project licensed
 under the Apache License, Version 2.0
 
-This module is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
 Copyright (c) 2009 Vadim Loginov.
+
+This module is free software; you can redistribute it
+and/or modify it under the same terms as Perl itself.
 
 
 =head1 VERSION
 
-0.01
+0.02
 
 =head1 SEE ALSO
 
