@@ -5,7 +5,7 @@ use warnings;
 
 use vars qw($VERSION);
 
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 use base qw/Class::Accessor/;
 
@@ -1065,106 +1065,161 @@ sub get_time_after {
     my $got_one = 0;
 
     # loop until we've computed the next time, or we've past the endTime
-    while ( !$got_one ) {
+    ITER: while ( !$got_one ) {
 
         #if (endTime != null && cl.getTime().after(endTime)) return null;
         if ( ( $cl->year ) > 2999 ) {    # prevent endless loop...
             return undef;
         }
 
-        # sorted set
-        # SortedSet
-        my $st = undef;
-        my $t  = 0;
-
-        my $sec = $cl->second;
-        my $min = $cl->minute;
 
         # get second.................................................
-        $st = $this->seconds->tail_set($sec);
-
-        if ( defined $st && $st->size() != 0 ) {
-            $sec = int( $st->first_item() );
-        }
-        else {
-            $sec = int( $this->seconds->first_item() );
-            $min++;
-            if ( $min == 60 ) {
-                $cl->set( minute => 59 );
-                $cl->add( minutes => 1 );
+        {
+            # sorted set
+            # SortedSet
+            my $st = undef;
+            my $t  = 0;
+    
+            my $sec = $cl->second;
+            my $min = $cl->minute;
+    
+            $st = $this->seconds->tail_set($sec);
+    
+            if ( defined $st && $st->size() != 0 ) {
+                $sec = int( $st->first_item() );
             }
             else {
-                $cl->set( minute => $min );
+                $sec = int( $this->seconds->first_item() );
+                $cl->add(minutes => 1);
             }
+            $cl->set( second => $sec );
         }
-        $cl->set( second => $sec );
-
-        $min = $cl->minute;
-        my $hr = $cl->hour;
-        $t = -1;
 
         # get minute.................................................
-        $st = $this->minutes->tail_set($min);
-        if ( defined $st && $st->size() != 0 ) {
-            $t   = $min;
-            $min = int( $st->first_item );
-        }
-        else {
-            $min = int( $this->minutes->first_item() );
-            $hr++;
-        }
-        if ( $min != $t ) {
-            $cl->set( second => 0, minute => $min );
-            $this->set_calendar_hour( $cl, $hr );
-            next;
-        }
-        $cl->set( minute => $min );
+        {
+            my $min = $cl->minute;
+            my $hr = $cl->hour;
+            my $t = -1;
 
-        $hr = $cl->hour;
-        my $day = $cl->day;
-        $t = -1;
+            my $st = $this->minutes->tail_set($min);
+            if ( defined $st && $st->size() != 0 ) {
+                $t   = $min;
+                $min = int( $st->first_item );
+            }
+            else {
+                # next hour
+                $min = int( $this->minutes->first_item() );
+                $hr++;
+            }
+
+            if ( $min != $t ) {
+                $cl->set( second => 0, minute => $min );
+                $this->set_calendar_hour( $cl, $hr );
+                next ITER;
+            }
+
+            $cl->set( minute => $min );
+        }
 
         # get hour...................................................
-        $st = $this->hours->tail_set( int($hr) );
-        if ( defined $st && $st->size() != 0 ) {
-            $t  = $hr;
-            $hr = int( $st->first_item() );
-        }
-        else {
-            $hr = int( $this->hours->first_item() );
-            $day++;
-        }
-        if ( $hr != $t ) {
+        {
+            my $hr = $cl->hour;
+            my $day = $cl->day;
+            my $t = -1;
+    
+            my $st = $this->hours->tail_set( int($hr) );
+            if ( defined $st && $st->size() != 0 ) {
+                $t  = $hr;
+                $hr = int( $st->first_item() );
+            }
+            else {
+                $hr = int( $this->hours->first_item() );
+                $day++;
+            }
 
-            # FIX $cl->set(second => 0, minute =>0, day => $day);
-            $cl->add( days => $day - $cl->day );
-            $cl->set( second => 0, minute => 0 );
+            if ( $hr != $t ) {
 
-            $this->set_calendar_hour( $cl, $hr );
-            next;
+                $cl->add( days => $day - $cl->day );
+                $cl->set( second => 0, minute => 0 );
+    
+                $this->set_calendar_hour( $cl, $hr );
+                next ITER;
+            }
+    
+            $cl->set( hour => $hr );
         }
-        $cl->set( hour => $hr );
-
-        $day = $cl->day;
-        my $mon = $cl->month;
-        $t = -1;
-        my $tmon = $mon;
 
         # get day...................................................
-        my $day_of_m_spec = !$this->days_of_month->contains($NO_SPEC);
-        my $day_of_w_spec = !$this->days_of_week->contains($NO_SPEC);
-        if ( $day_of_m_spec && !$day_of_w_spec )
-        {    # get day by day of month rule
-            $st = $this->days_of_month->tail_set( int($day) );
-            if ( $this->lastday_of_month ) {
-                if ( !$this->nearest_weekday ) {
-                    $t = $day;
-                    $day = $this->getlastday_of_month( $mon, $cl->year );
-                }
-                else {
-                    $t = $day;
-                    $day = $this->getlastday_of_month( $mon, $cl->year );
+        {
+            my $day = $cl->day;
+            my $mon = $cl->month;
+            my $t = -1;
+            my $tmon = $mon;
 
+            my $day_of_m_spec = !$this->days_of_month->contains($NO_SPEC);
+            my $day_of_w_spec = !$this->days_of_week->contains($NO_SPEC);
+
+            my $min = $cl->min;
+            my $sec = $cl->sec;
+            my $hr = $cl->hour;
+
+            if ( $day_of_m_spec && !$day_of_w_spec )
+            {
+                # get day by day of month rule
+                my $st = $this->days_of_month->tail_set( int($day) );
+                if ( $this->lastday_of_month ) {
+                    if ( !$this->nearest_weekday ) {
+                        $t = $day;
+                        $day = $this->getlastday_of_month( $mon, $cl->year );
+                    }
+                    else {
+                        $t = $day;
+                        $day = $this->getlastday_of_month( $mon, $cl->year );
+    
+                        my $tcal = DateTime->new(
+                            second => 0,
+                            minute => 0,
+                            hour   => 0,
+                            day    => $day,
+                            month  => $mon,
+                            year   => $cl->year
+                        );
+    
+                        my $ldom = $this->getlastday_of_month( $mon, $cl->year );
+                        my $dow = $tcal->day_of_week_0;
+    
+                        if ( $dow == $SATURDAY && $day == 1 ) {
+                            $day += 2;
+                        }
+                        elsif ( $dow == $SATURDAY ) {
+                            $day -= 1;
+                        }
+                        elsif ( $dow == $SUNDAY && $day == $ldom ) {
+                            $day -= 2;
+                        }
+                        elsif ( $dow == $SUNDAY ) {
+                            $day += 1;
+                        }
+    
+                        $tcal->set(
+                            second => $sec,
+                            minute => $min,
+                            hour   => $hr,
+                            day    => $day,
+                            month  => $mon
+                        );
+    
+                        # tcal before afterTime
+                        if ( DateTime->compare( $tcal, $after_time ) < 0 ) {
+                            $day = 1;
+                            $mon++;
+                        }
+                    }
+                }
+                elsif ( $this->nearest_weekday ) {
+                    $t   = $day;
+                    $day = int( $this->days_of_month->first_item() );
+    
                     my $tcal = DateTime->new(
                         second => 0,
                         minute => 0,
@@ -1175,7 +1230,7 @@ sub get_time_after {
                     );
 
                     my $ldom = $this->getlastday_of_month( $mon, $cl->year );
-                    my $dow = $tcal->day_of_week();
+                    my $dow = $tcal->day_of_week_0;
 
                     if ( $dow == $SATURDAY && $day == 1 ) {
                         $day += 2;
@@ -1195,297 +1250,267 @@ sub get_time_after {
                         minute => $min,
                         hour   => $hr,
                         day    => $day,
-                        mon    => $mon
+                        month  => $mon
                     );
-
+    
                     # tcal before afterTime
                     if ( DateTime->compare( $tcal, $after_time ) < 0 ) {
-                        $day = 1;
+                        $day = int( $this->days_of_month->first_item() );
                         $mon++;
                     }
                 }
-            }
-            elsif ( $this->nearest_weekday ) {
-                $t   = $day;
-                $day = int( $this->days_of_month->first_item() );
-
-                my $tcal = DateTime->new(
-                    second => 0,
-                    minute => 0,
-                    hour   => 0,
-                    day    => $day,
-                    month  => $mon,
-                    year   => $cl->year
-                );
-
-                my $ldom = $this->getlastday_of_month( $mon, $cl->year );
-                my $dow = $tcal->day_of_week;
-
-                if ( $dow == $SATURDAY && $day == 1 ) {
-                    $day += 2;
+                elsif ( defined $st && $st->size() != 0 ) {
+                    $t   = $day;
+                    $day = int( $st->first_item );
+    
+                    # make sure we don't over-run a short month, such as february
+                    my $last_day = $this->getlastday_of_month( $mon, $cl->year );
+                    if ( $day > $last_day ) {
+                        $day = int( $this->days_of_month->first_item() );
+                        $mon++;
+                    }
                 }
-                elsif ( $dow == $SATURDAY ) {
-                    $day -= 1;
-                }
-                elsif ( $dow == $SUNDAY && $day == $ldom ) {
-                    $day -= 2;
-                }
-                elsif ( $dow == $SUNDAY ) {
-                    $day += 1;
-                }
-
-                $tcal->set(
-                    second => $sec,
-                    minute => $min,
-                    hour   => $hr,
-                    day    => $day,
-                    month  => $mon
-                );
-
-                # tcal before afterTime
-                if ( DateTime->compare( $tcal, $after_time ) < 0 ) {
+                else {
                     $day = int( $this->days_of_month->first_item() );
                     $mon++;
                 }
-            }
-            elsif ( defined $st && $st->size() != 0 ) {
-                $t   = $day;
-                $day = int( $st->first_item );
-
-                # make sure we don't over-run a short month, such as february
-                my $lastDay = $this->getlastday_of_month( $mon, $cl->year );
-                if ( $day > $lastDay ) {
-                    $day = int( $this->days_of_month->first_item() );
-                    $mon++;
+    
+                if ( $day != $t || $mon != $tmon ) {
+                    $cl->set(
+                        second => 0,
+                        minute => 0,
+                        hour   => 0,
+                        day    => $day,
+                        month  => $mon
+                    );
+                    next ITER;
                 }
+            }
+            elsif ( $day_of_w_spec && !$day_of_m_spec )
+            {
+                # get day by day of week rule
+
+                if ( $this->lastday_of_week )
+                {         # are we looking for the last XXX day of
+                          # the month?
+
+                    my $dow = int( $this->days_of_week->first_item() ); # desired d-o-w
+                    my $c_dow       = $cl->day_of_week();    # current d-o-w
+                    my $days_to_add = 0;
+                    if ( $c_dow < $dow ) {
+                        $days_to_add = $dow - $c_dow;
+                    }
+                    if ( $c_dow > $dow ) {
+                        $days_to_add = $dow + ( 7 - $c_dow );
+                    }
+    
+                    my $l_day = $this->getlastday_of_month( $mon, $cl->year );
+    
+                    if ( $day + $days_to_add > $l_day ) {  # did we already miss the
+                                                           # last one?
+                        $cl->set(
+                            second => 0,
+                            minute => 0,
+                            hour   => 0,
+                            day    => 1,
+                            month  => $mon + 1
+                        );
+                        next ITER;
+                    }
+    
+                    # find date of last occurance of this day in this month...
+                    while ( ( $day + $days_to_add + 7 ) <= $l_day ) {
+                        $days_to_add += 7;
+                    }
+    
+                    $day += $days_to_add;
+    
+                    if ( $days_to_add > 0 ) {
+                        $cl->set(
+                            second => 0,
+                            minute => 0,
+                            hour   => 0,
+                            day    => $day,
+                            month  => $mon
+                        );
+                        next ITER;
+                    }
+    
+                }
+                elsif ( $this->nthday_of_week != 0 ) {
+    
+                    # are we looking for the Nth XXX day in the month?
+                    my $dow = int( $this->days_of_week->first_item() );    # desired
+                                                                           # d-o-w
+                    my $c_dow       = $cl->day_of_week();    # current d-o-w
+                    my $days_to_add = 0;
+                    if ( $c_dow < $dow ) {
+                        $days_to_add = $dow - $c_dow;
+                    }
+                    elsif ( $c_dow > $dow ) {
+                        $days_to_add = $dow + ( 7 - $c_dow );
+                    }
+    
+                    my $day_shifted = 0;
+                    if ( $days_to_add > 0 ) {
+                        $day_shifted = 1;
+                    }
+    
+                    $day += $days_to_add;
+                    my $week_of_month = int( $day / 7 );
+                    if ( $day % 7 > 0 ) {
+                        $week_of_month++;
+                    }
+    
+                    $days_to_add = ( $this->nthday_of_week - $week_of_month ) * 7;
+                    $day += $days_to_add;
+                    if (   $days_to_add < 0
+                        || $day > $this->getlastday_of_month( $mon, $cl->year ) )
+                    {
+                        $cl->set(
+                            second => 0,
+                            minute => 0,
+                            hour   => 0,
+                            day    => 1,
+                            month  => $mon + 1
+                        );
+                        next ITER;
+                    }
+                    elsif ( $days_to_add > 0 || $day_shifted ) {
+                        $cl->set(
+                            second => 0,
+                            minute => 0,
+                            hour   => 0,
+                            day    => $day,
+                            month  => $mon
+                        );
+                        next ITER;
+                    }
+                }
+                else {
+                    my $c_dow = $cl->day_of_week;    # current d-o-w
+                    my $dow = int( $this->days_of_week->first_item() );    # desired
+                                                                           # d-o-w
+                    my $st = $this->days_of_week->tail_set( int($c_dow) );
+                    if ( defined $st && $st->size() > 0 ) {
+                        $dow = int( $st->first_item() );
+                    }
+    
+                    my $days_to_add = 0;
+                    if ( $c_dow < $dow ) {
+                        $days_to_add = $dow - $c_dow;
+                    }
+                    if ( $c_dow > $dow ) {
+                        $days_to_add = $dow + ( 7 - $c_dow );
+                    }
+    
+                    my $l_day = $this->getlastday_of_month( $mon, $cl->year );
+    
+                    if ( $day + $days_to_add > $l_day ) {  # will we pass the end of
+                                                           # the month?
+                        # switch to the next month
+                        $cl->set(
+                            second => 0,
+                            minute => 0,
+                            hour   => 0,
+                            day    => 1
+                        );
+    
+                        $cl->add(months => 1);
+    
+                        next ITER;
+                    }
+                    elsif ( $days_to_add > 0 ) {    # are we swithing days?
+                        # just add some more days
+                        $cl->set(
+                            second => 0,
+                            minute => 0,
+                            hour   => 0,
+                            month  => $mon
+                        );
+    
+                        $cl->add(days => $days_to_add);
+    
+                        next ITER;
+                    }
+                }
+            }
+            else {            # dayOfWSpec && !dayOfMSpec
+                UnsupportedOperationException->throw(
+                    error => q/Support for specifying both /
+                      . q/a day-of-week AND a day-of-month parameter is not implemented./
+                );
+    
+                # TODO:
+            }
+
+            $cl->set( day => $day );
+        }
+
+        # get month...................................................
+        {
+            my $mon = $cl->month;
+            my $year = $cl->year;
+            my $t = -1;
+    
+            # test for expressions that never generate a valid fire date,
+            # but keep looping...
+            if ( $year > 2099 ) {
+                return undef;
+            }
+    
+            my $st = $this->months->tail_set( int($mon) );
+            if ( defined $st && $st->size() != 0 ) {
+                $t   = $mon;
+                $mon = ( int $st->first_item() );
             }
             else {
-                $day = int( $this->days_of_month->first_item() );
-                $mon++;
+                $mon = ( int $this->months->first_item() );
+                $year++;
             }
-
-            if ( $day != $t || $mon != $tmon ) {
+            if ( $mon != $t ) {
                 $cl->set(
                     second => 0,
                     minute => 0,
                     hour   => 0,
-                    day    => $day,
+                    day    => 1,
                     month  => $mon
                 );
-                next;
+    
+                $cl->set( year => $year );
+                next ITER;
             }
+            $cl->set( month => $mon );
         }
-        elsif ( $day_of_w_spec && !$day_of_m_spec )
-        {             # get day by day of week rule
-            if ( $this->lastday_of_week )
-            {         # are we looking for the last XXX day of
-                      # the month?
-                my $dow = int( $this->days_of_week->first_item() );    # desired
-                                                                       # d-o-w
-                my $c_dow       = $cl->day_of_week();    # current d-o-w
-                my $days_to_add = 0;
-                if ( $c_dow < $dow ) {
-                    $days_to_add = $dow - $c_dow;
-                }
-                if ( $c_dow > $dow ) {
-                    $days_to_add = $dow + ( 7 - $c_dow );
-                }
-
-                my $l_day = $this->getlastday_of_month( $mon, $cl->year );
-
-                if ( $day + $days_to_add > $l_day ) {  # did we already miss the
-                                                       # last one?
-                    $cl->set(
-                        second => 0,
-                        minute => 0,
-                        hour   => 0,
-                        day    => 1,
-                        month  => $mon + 1
-                    );
-                    next;
-                }
-
-                # find date of last occurance of this day in this month...
-                while ( ( $day + $days_to_add + 7 ) <= $l_day ) {
-                    $days_to_add += 7;
-                }
-
-                $day += $days_to_add;
-
-                if ( $days_to_add > 0 ) {
-                    $cl->set(
-                        second => 0,
-                        minute => 0,
-                        hour   => 0,
-                        day    => $day,
-                        month  => $mon
-                    );
-                    next;
-                }
-
-            }
-            elsif ( $this->nthday_of_week != 0 ) {
-
-                # are we looking for the Nth XXX day in the month?
-                my $dow = int( $this->days_of_week->first_item() );    # desired
-                                                                       # d-o-w
-                my $c_dow       = $cl->day_of_week();    # current d-o-w
-                my $days_to_add = 0;
-                if ( $c_dow < $dow ) {
-                    $days_to_add = $dow - $c_dow;
-                }
-                elsif ( $c_dow > $dow ) {
-                    $days_to_add = $dow + ( 7 - $c_dow );
-                }
-
-                my $day_shifted = 0;
-                if ( $days_to_add > 0 ) {
-                    $day_shifted = 1;
-                }
-
-                $day += $days_to_add;
-                my $week_of_month = int( $day / 7 );
-                if ( $day % 7 > 0 ) {
-                    $week_of_month++;
-                }
-
-                $days_to_add = ( $this->nthday_of_week - $week_of_month ) * 7;
-                $day += $days_to_add;
-                if (   $days_to_add < 0
-                    || $day > $this->getlastday_of_month( $mon, $cl->year ) )
-                {
-                    $cl->set(
-                        second => 0,
-                        minute => 0,
-                        hour   => 0,
-                        day    => 1,
-                        month  => $mon + 1
-                    );
-                    next;
-                }
-                elsif ( $days_to_add > 0 || $day_shifted ) {
-                    $cl->set(
-                        second => 0,
-                        minute => 0,
-                        hour   => 0,
-                        day    => $day,
-                        month  => $mon
-                    );
-                    next;
-                }
-            }
-            else {
-                my $c_dow = $cl->day_of_week;    # current d-o-w
-                my $dow = int( $this->days_of_week->first_item() );    # desired
-                                                                       # d-o-w
-                $st = $this->days_of_week->tail_set( int($c_dow) );
-                if ( defined $st && $st->size() > 0 ) {
-                    $dow = int( $st->first_item() );
-                }
-
-                my $days_to_add = 0;
-                if ( $c_dow < $dow ) {
-                    $days_to_add = $dow - $c_dow;
-                }
-                if ( $c_dow > $dow ) {
-                    $days_to_add = $dow + ( 7 - $c_dow );
-                }
-
-                my $l_day = $this->getlastday_of_month( $mon, $cl->year );
-
-                if ( $day + $days_to_add > $l_day ) {  # will we pass the end of
-                                                       # the month?
-                    $cl->set(
-                        second => 0,
-                        minute => 0,
-                        hour   => 0,
-                        day    => 1,
-                        month  => $mon - 1
-                    );
-                    next;
-                }
-                elsif ( $days_to_add > 0 ) {    # are we swithing days?
-                    $cl->set(
-                        second => 0,
-                        minute => 0,
-                        hour   => 0,
-                        day    => $day + $days_to_add,
-                        month  => $mon
-                    );
-                    next;
-                }
-            }
-        }
-        else {            # dayOfWSpec && !dayOfMSpec
-            UnsupportedOperationException->throw(
-                error => q/Support for specifying both /
-                  . q/a day-of-week AND a day-of-month parameter is not implemented./
-            );
-
-            # TODO:
-        }
-        $cl->set( day => $day );
-
-        $mon = $cl->month;
-        my $year = $cl->year;
-        $t = -1;
-
-        # test for expressions that never generate a valid fire date,
-        # but keep looping...
-        if ( $year > 2099 ) {
-            return undef;
-        }
-
-        # get month...................................................
-        $st = $this->months->tail_set( int($mon) );
-        if ( defined $st && $st->size() != 0 ) {
-            $t   = $mon;
-            $mon = ( int $st->first_item() );
-        }
-        else {
-            $mon = ( int $this->months->first_item() );
-            $year++;
-        }
-        if ( $mon != $t ) {
-            $cl->set(
-                second => 0,
-                minute => 0,
-                hour   => 0,
-                day    => 1,
-                month  => $mon
-            );
-
-            $cl->set( year => $year );
-            next;
-        }
-        $cl->set( month => $mon );
-
-        $year = $cl->year;
-        $t    = -1;
 
         # get year...................................................
-        $st = $this->years->tail_set( int($year) );
-        if ( defined $st && $st->size() != 0 ) {
-            $t    = $year;
-            $year = int( $st->first_item() );
-        }
-        else {
-            return undef;    # ran out of years...
-        }
+        {
+            my $year = $cl->year;
+            my $t = -1;
 
-        if ( $year != $t ) {
-            $cl->set(
-                second => 0,
-                minute => 0,
-                hour   => 0,
-                day    => 1,
-                month  => 1
-            );
+            my $st = $this->years->tail_set( int($year) );
+            if ( defined $st && $st->size() != 0 ) {
+                $t    = $year;
+                $year = int( $st->first_item() );
+            }
+            else {
+                return undef;    # ran out of years...
+            }
+    
+            if ( $year != $t ) {
+                $cl->set(
+                    second => 0,
+                    minute => 0,
+                    hour   => 0,
+                    day    => 1,
+                    month  => 1
+                );
+                $cl->set( year => $year );
+                next ITER;
+            }
+    
             $cl->set( year => $year );
-            next;
         }
-
-        $cl->set( year => $year );
 
         $got_one = 1;
     }    # while( !done )
@@ -1756,7 +1781,7 @@ it under the same terms as Perl itself.
 
 =head1 VERSION
 
-0.02
+0.03
 
 =head1 SEE ALSO
 
