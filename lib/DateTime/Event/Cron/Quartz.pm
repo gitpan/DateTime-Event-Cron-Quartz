@@ -5,13 +5,10 @@ use warnings;
 
 use vars qw($VERSION);
 
-$VERSION = '0.03';
+$VERSION = '0.04';
 
 use base qw/Class::Accessor/;
 
-use Carp;
-use DateTime;
-use Switch;
 use DateTime;
 use Readonly;
 
@@ -314,7 +311,7 @@ sub store_expression_vals {
         my $sval = -1;
         my $eval = -1;
         if ( $type == $MONTH ) {
-            $sval = $this->get_month_number($sub) + 1;
+            $sval = $this->get_month_number($sub);
             if ( $sval <= 0 ) {
                 ParseException->throw(
                     error => q/Invalid Month value: '/ . $sub . q/'/,
@@ -326,7 +323,7 @@ sub store_expression_vals {
                 if ( $c eq q/-/ ) {
                     $i += ( 3 + 1 );
                     $sub = ( substr $s, $i, $i + 3 );
-                    $eval = $this->get_month_number($sub) + 1;
+                    $eval = $this->get_month_number($sub);
                     if ( $eval <= 0 ) {
                         ParseException->throw(
                             error => q/Invalid Month value: '/ . $sub . q/'/,
@@ -1021,7 +1018,7 @@ sub get_month_number {
 
     my $s = shift;
 
-    my $integer = $MONTH_MAP->get($s);
+    my $integer = $MONTH_MAP->{$s};
 
     if ( !defined $integer ) {
         return -1;
@@ -1608,7 +1605,7 @@ DateTime::Event::Cron::Quartz - OpensSymphony Quartz cron expression processor
 
     # check if it was a correct cron expression provided
 
-    my $is_valid = is_valid_expression('0 0 12 * * ?');
+    my $is_valid = $event->is_valid_expression('0 0 12 * * ?');
 
 =head1 DESCRIPTION
 
@@ -1781,7 +1778,7 @@ it under the same terms as Perl itself.
 
 =head1 VERSION
 
-0.03
+0.04
 
 =head1 SEE ALSO
 

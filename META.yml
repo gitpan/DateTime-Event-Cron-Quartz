@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                DateTime-Event-Cron-Quartz
-version:             0.03
+version:             0.04
 abstract:            OpensSymphony Quartz cron expression processor
 license:             ~
 author:              
@@ -12,7 +12,6 @@ requires:
     DateTime:                      0.50
     Exception::Class:              1.29
     Readonly:                      1.03
-    Switch:                        2.13
 meta-spec:
     url:     http://module-build.sourceforge.net/META-spec-v1.3.html
     version: 1.3

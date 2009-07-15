@@ -3,9 +3,9 @@
 use strict;
 use warnings;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
-use Test::More tests => 104;
+use Test::More tests => 107;
 
 use_ok('DateTime::Event::Cron::Quartz');
 
@@ -57,6 +57,12 @@ sub dcomp {
 #
 
 Readonly my $TESTS => [
+    [
+        '0 10 14 ? JAN,FEB MON,WED 2010-2011',
+        [ 2009, 7, 15, 7, 47, 8],
+        [[ 2010, 1, 4, 14, 10 ,0], [2010, 1, 6, 14, 10, 0], [2010, 1, 11, 14, 10, 00]]
+    ],
+    
     [
         '0 0 3 ? * 5L',
         [ 2009, 8, 25, 11, 14, 06 ],

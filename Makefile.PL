@@ -7,7 +7,6 @@ WriteMakefile(
         'DateTime'        => '0.50',
         'Readonly'        => '1.03',
         'Class::Accessor' => '0.33',
-        'Switch'          => '2.13',
         'Exception::Class'=> '1.29'
     },
     'ABSTRACT_FROM' => 'lib/DateTime/Event/Cron/Quartz.pm',

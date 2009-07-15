@@ -1,5 +1,10 @@
 Revision history:
 
+0.04  Wed Jul 15 11:30:00 2009
+    - POD fix
+    - Switch module usage removed due to the long initialization delay
+    - Fixed bug with literal month names
+
 0.03  Fri Jun 26 18:00:00 2009
     - POD fix
     - prerequisites added to Makefile.PL
