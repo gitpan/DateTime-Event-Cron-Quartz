@@ -5,7 +5,7 @@ use warnings;
 
 use vars qw($VERSION);
 
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 use base qw/Class::Accessor/;
 
@@ -1259,7 +1259,7 @@ sub get_time_after {
                 elsif ( defined $st && $st->size() != 0 ) {
                     $t   = $day;
                     $day = int( $st->first_item );
-    
+
                     # make sure we don't over-run a short month, such as february
                     my $last_day = $this->getlastday_of_month( $mon, $cl->year );
                     if ( $day > $last_day ) {
@@ -1271,15 +1271,21 @@ sub get_time_after {
                     $day = int( $this->days_of_month->first_item() );
                     $mon++;
                 }
-    
+
                 if ( $day != $t || $mon != $tmon ) {
                     $cl->set(
                         second => 0,
                         minute => 0,
-                        hour   => 0,
-                        day    => $day,
-                        month  => $mon
+                        hour   => 0
                     );
+
+                    if ($mon > 12) {
+                        $cl->set(month => 12, day => 1);
+                        $cl->add(months => $mon - 12);
+                    } else {
+                        $cl->set(month => $mon, day => $day);
+                    }
+
                     next ITER;
                 }
             }
@@ -1369,8 +1375,10 @@ sub get_time_after {
                             minute => 0,
                             hour   => 0,
                             day    => 1,
-                            month  => $mon + 1
+                            month  => $mon
                         );
+
+                        $cl->add(months => 1);
                         next ITER;
                     }
                     elsif ( $days_to_add > 0 || $day_shifted ) {
@@ -1778,7 +1786,7 @@ it under the same terms as Perl itself.
 
 =head1 VERSION
 
-0.04
+0.05
 
 =head1 SEE ALSO
 

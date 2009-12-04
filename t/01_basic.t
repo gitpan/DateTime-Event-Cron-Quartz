@@ -3,9 +3,9 @@
 use strict;
 use warnings;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
-use Test::More tests => 107;
+use Test::More tests => 110;
 
 use_ok('DateTime::Event::Cron::Quartz');
 
@@ -57,6 +57,19 @@ sub dcomp {
 #
 
 Readonly my $TESTS => [
+    [
+        '0 0 0 31 * ?',
+        [ 2008, 1, 1, 0, 0, 0 ],
+        [ [ 2008, 1, 31, 0, 0, 0 ], [ 2008, 3, 31, 0, 0, 0 ] ],
+        'Last day of the month'
+    ],
+
+    [
+        '0 0 0 1 3,6,9,12 ?',
+        [ 2009, 12, 1, 16, 0, 8],
+        [[ 2010, 3, 1, 0, 0 ,0], [2010, 6, 1, 0, 0 ,0], [2010, 9, 1, 0, 0 ,0]]
+    ],
+
     [
         '0 10 14 ? JAN,FEB MON,WED 2010-2011',
         [ 2009, 7, 15, 7, 47, 8],
@@ -158,13 +171,6 @@ Readonly my $TESTS => [
             [ 2008, 1, 1, 14, 2, 0 ]
         ],
         'Fire every minute starting at 2pm and ending at 2:05pm, every day'
-    ],
-
-    [
-        '0 0 0 31 * ?',
-        [ 2008, 1, 1, 0, 0, 0 ],
-        [ [ 2008, 1, 31, 0, 0, 0 ], [ 2008, 3, 31, 0, 0, 0 ] ],
-        'Last day of the month'
     ],
 
     [

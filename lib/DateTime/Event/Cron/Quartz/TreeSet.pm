@@ -4,7 +4,7 @@ use 5.006001;
 use strict;
 use warnings;
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 sub new {
     my $class = shift;
@@ -252,7 +252,7 @@ and/or modify it under the same terms as Perl itself.
 
 =head1 VERSION
 
-0.04
+0.05
 
 =head1 SEE ALSO
 
